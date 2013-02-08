@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+	<head>
+		<script>
+			"use strict";
+			function init() {
+				var save = function() {}
+				var load = function() {}
+				var splits = [];
+				if (typeof(Storage) !== "undefined") {
+					save = function() {
+						window.localStorage.setItem('splits', JSON.stringify(splits));
+					}
+					load = function() {
+						splits = JSON.parse(window.localStorage.getItem('splits')) || [];
+					}
+				}
+
+				var timer = document.createElement('div');
+				var clock = new Clock();
+				var splitContainer = document.createElement('ol');
+				var Split = function(text, time) {
+					this.text = text;
+					this.time = time;
+					splits.push(this);
+					save();
+				}
+				function redraw() {
+					save();
+					var s;
+					splitContainer.innerHTML = "";
+					for (s in splits){
+						addNewSplit(splits[s]);
+					}
+				}
+				var lastDragElement = undefined;
+				function addNewSplit(s) {
+					var newSplit = document.createElement('li');
+					newSplit.s = s;
+					newSplit.className = "split";
+					var t = document.createTextNode(s.text);
+					newSplit.appendChild(t);
+					newSplit.draggable = "true";
+					newSplit.addEventListener('drop', function(e, ui){
+						if (e.preventDefault) e.preventDefault();
+						if (e.stopPropagation) e.stopPropagation();
+						if(lastDragElement !== newSplit && lastDragElement.s !== undefined) {
+							// reorder elements
+							splits.splice(splits.indexOf(newSplit.s), 0, splits.splice(splits.indexOf(lastDragElement.s), 1)[0]);
+							redraw();
+						}
+					}, false);
+					newSplit.addEventListener('dragstart', function(e) { lastDragElement = this; this.classList.add('dragging');}, false);
+					newSplit.addEventListener('dragenter', function(e) { if (e.preventDefault) e.preventDefault(); this.classList.add('over'); return false;}, false);
+					newSplit.addEventListener('dragover', function(e) { if (e.preventDefault) e.preventDefault(); this.classList.remove('dragging');}, false);
+					newSplit.addEventListener('dragleave', function(e) { this.classList.remove('over');}, false);
+					newSplit.ondblclick = function(){this.editable = true;};
+					//newSplit.addEventListener('dragend', function(e) {alert("END");}, false);
+
+					splitContainer.appendChild(newSplit);
+				}
+				// Init UI
+				// Add old splits
+				load();
+				redraw();
+				// Add create new split input
+				var add = document.createElement("input");
+				//TODO(reggna) Maybe add some default "add stuff here" text?
+				add.onkeydown = function(e) { 
+					if (e.keyCode === 13) {
+						addNewSplit(new Split(this.value));
+						this.value = "";
+					}
+					// We don't want to control the clock while typing
+					if (e.stopPropagation) e.stopPropagation();
+				};
+				var running = false;
+				var makeSplit = function() {
+					if (!running) {
+						startStop();
+						return;
+					}
+					// TODO(reggna): Fix some splits!
+				}
+				function Clock() {
+					this.isRunning = false;
+					var start;
+					var t;
+					this.start = function() {
+						if (timer.innerHTML === "00:00:00.00") this.reset();
+						this.isRunning = true;
+						t = setInterval(function(){
+							// TODO(reggna): Fix some sort of pause...
+							// (currently the timer will continue to update 
+							var s = ((new Date()) - start)/1000;
+							var m = Math.floor(s/60);
+							var h = Math.floor(m/60);
+							m %= 60;
+							m = Math.round(m);
+							s %= 60;
+							s = Math.round(s*100)/100;
+							timer.innerHTML = ((h < 10) ? '0' : '') + h + ":" +
+								((m < 10) ? '0' : '') + m + ":" + 
+								((s < 10) ? '0' : '') + s;
+							
+						}, 16);
+					}
+					this.stop = function(){
+						this.isRunning = false;
+						window.clearInterval(t);
+					}
+					this.reset = function(){
+						this.stop();
+						start = new Date();
+						timer.innerHTML = "00:00:00.00";
+					}
+					this.reset();
+				}
+				document.body.onkeydown = function(e) {
+					if (e.keyCode === 32) { // space
+						makeSplit();
+					} else if (e.keyCode === 83) { // s
+						if (clock.isRunning) clock.stop();
+						else clock.start();
+					} else if (e.keyCode === 82) { // r{
+						clock.reset();
+					}
+				};
+				var clear = document.createElement('button');
+				clear.innerText = "Clear all";
+				clear.onclick = function() {
+					add.value = "";
+					splits = []
+					redraw();
+					window.localStorage.clear();
+					clock.reset();
+				}
+				document.body.appendChild(timer);
+				document.body.appendChild(splitContainer);
+				document.body.appendChild(add);
+				document.body.appendChild(clear);
+			}
+			window.addEventListener("DOMContentLoaded", init, false);
+		</script>
+		<style>
+			/* TODO(reggna): Add some style! */ 
+			[draggable] {
+				-moz-user-select: none;
+				-khtml-user-select: none;
+				-webkit-user-select: none;
+				user-select: none;
+				}
+			body, .split, button, input {
+				background: black;
+				border: 0px;
+				color: white;
+				font-size: 150%; 
+				border: 1px solid gray;
+			}
+			body {
+				border: 0px;
+			}
+			.split {
+				width: 100%;
+			}
+			.split.dragging {
+				background: red;
+			}
+			.split.over {
+				background: green;
+			}
+			ol {
+				list-style-image: url(data:image/gif;base64,R0lGODlhCAAQAKECALe3t7y8vP///////yH5BAEKAAIALAAAAAAIABAAAAIWlH8RprzSkJyuwhepvjbmPXkPgD1UAQA7);
+			}
+		</style>
+	</head>
+	<body>
+	</body>
+</html>
